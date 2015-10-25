@@ -1,4 +1,4 @@
-# Scraping-Google-Play-Store
+# Scraping Google Play Store
 
 urls.txt contains 1 million of apps and games from play store.
 
