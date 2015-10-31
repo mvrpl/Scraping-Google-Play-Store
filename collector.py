@@ -17,8 +17,10 @@ def find_between(s, first, last):
 def format_stars(value):
 	return int(value.lstrip()[1:].rstrip().lstrip().replace('.',''))
 
-
-urls = open( "urls.txt", "r" )
+try:
+	urls = open(sys.argv[1], "r")
+except:
+	quit("ERRO: Envie o arquivo de URL`s")
 lines = []
 for line in urls:
     lines.append(line.replace("\n", ''))
@@ -55,14 +57,24 @@ for url in lines:
 
 	email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
 
-	score_total = soup.select(".score")[0].text
+	try:
+		score_total = soup.select(".score")[0].text
 
-	one_star 	= format_stars(soup.select("div.rating-bar-container.one")[0].text)
-	two_stars 	= format_stars(soup.select("div.rating-bar-container.two")[0].text)
-	three_stars = format_stars(soup.select("div.rating-bar-container.three")[0].text)
-	four_stars 	= format_stars(soup.select("div.rating-bar-container.four")[0].text)
-	five_stars 	= format_stars(soup.select("div.rating-bar-container.five")[0].text)
-	sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
+		one_star 	= format_stars(soup.select("div.rating-bar-container.one")[0].text)
+		two_stars 	= format_stars(soup.select("div.rating-bar-container.two")[0].text)
+		three_stars = format_stars(soup.select("div.rating-bar-container.three")[0].text)
+		four_stars 	= format_stars(soup.select("div.rating-bar-container.four")[0].text)
+		five_stars 	= format_stars(soup.select("div.rating-bar-container.five")[0].text)
+		sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
+	except:
+		score_total = 0
+
+		one_star 	= 0
+		two_stars 	= 0
+		three_stars = 0
+		four_stars 	= 0
+		five_stars 	= 0
+		sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
 
 	app_info = {'AppName': appName,
 				'url': url,
