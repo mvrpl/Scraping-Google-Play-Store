@@ -1,10 +1,13 @@
-import urllib2, json, re, sys
+import urllib2, json, re, sys, locale, datetime, os
 try:
 	from bs4 import BeautifulSoup
 except ImportError:
 	import pip
 	pip.main(['install', 'beautifulsoup4'])
 	from bs4 import BeautifulSoup
+
+#sudo apt-get install language-pack-pt-base -y && sudo locale-gen pt_BR pt_BR.UTF-8 && sudo dpkg-reconfigure locales
+locale.setlocale(locale.LC_ALL, 'pt_BR')
 
 def find_between(s, first, last):
     try:
@@ -16,6 +19,9 @@ def find_between(s, first, last):
 
 def format_stars(value):
 	return int(value.lstrip()[1:].rstrip().lstrip().replace('.',''))
+
+def get_num(x):
+	return int(''.join(ele for ele in x if ele.isdigit()))
 
 try:
 	urls = open(sys.argv[1], "r")
@@ -39,11 +45,12 @@ for url in lines:
 
 	soup = BeautifulSoup(content, 'html.parser')
 
-	datePublished 	= soup.find('div', {'itemprop': 'datePublished'}).text
+	date_scraped	= soup.find('div', {'itemprop': 'datePublished'}).text
+	datePublished	= datetime.datetime.strptime(date_scraped, '%d de %B de %Y').isoformat()
 	try:
 		fileSize 	= soup.find('div', {'itemprop': 'fileSize'}).text.rstrip().lstrip()
 	except:
-		fileSize	= ''
+		fileSize	= None
 	numDownloads 	= soup.find('div', {'itemprop': 'numDownloads'}).text.split('-')
 	appName 		= soup.select(".document-title")[0].text.rstrip().lstrip()
 	offered_by 		= soup.select('.document-subtitle.primary span')[0].text
@@ -58,7 +65,7 @@ for url in lines:
 	email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
 
 	try:
-		score_total = soup.select(".score")[0].text
+		score_total = float(soup.select(".score")[0].text.replace(',', '.'))
 
 		one_star 	= format_stars(soup.select("div.rating-bar-container.one")[0].text)
 		two_stars 	= format_stars(soup.select("div.rating-bar-container.two")[0].text)
@@ -94,12 +101,16 @@ for url in lines:
 				}
 
 	for review in soup.findAll('div', {'class': 'single-review'}):
-		author 	= review.find('span', {'class': 'author-name'}).text.rstrip().lstrip()
-		authorId = find_between(str(review.find('span', {'class': 'author-name'})), '?id=', '"')
-		date 	= review.find('span', {'class': 'review-date'}).text
-		message = review.find('div', {'class': 'review-body'}).text.replace('Resenha completa', '').rstrip().lstrip()
-		app_info['reviews']['comments'].append({'author': author, 'authorId': authorId, 'date': date, 'message': message.encode('utf-8')})
+		author 		= review.find('span', {'class': 'author-name'}).text.rstrip().lstrip()
+		authorId 	= find_between(str(review.find('span', {'class': 'author-name'})), '?id=', '"')
+		authorStars = get_num(review.find('div', {'class': 'review-info-star-rating'}).find('div', {'class': 'tiny-star star-rating-non-editable-container'}).get('aria-label'))
+		date 		= datetime.datetime.strptime(review.find('span', {'class': 'review-date'}).text, '%d de %B de %Y').isoformat()
+		message 	= review.find('div', {'class': 'review-body'}).text.replace('Resenha completa', '').rstrip().lstrip()
+		app_info['reviews']['comments'].append({'author': author, 'authorId': authorId, 'authorStars': authorStars, 'date': date, 'message': message})
 
 	# print json.dumps(app_info, indent=4), quit()
+
+	if not os.path.exists('apps_info_json'):
+		os.makedirs('apps_info_json')
 
 	json.dump(app_info, open('apps_info_json/%s.json' % ''.join(l for l in re.findall('([A-Za-z])' ,appName)), 'w'))
