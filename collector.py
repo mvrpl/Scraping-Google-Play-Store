@@ -1,13 +1,5 @@
-import urllib2, json, re, sys, locale, datetime, os
-try:
-	from bs4 import BeautifulSoup
-except ImportError:
-	import pip
-	pip.main(['install', 'beautifulsoup4'])
-	from bs4 import BeautifulSoup
-
-#sudo apt-get install language-pack-pt-base -y && sudo locale-gen pt_BR pt_BR.UTF-8 && sudo dpkg-reconfigure locales
-locale.setlocale(locale.LC_ALL, 'pt_BR')
+import urllib2, json, re, sys, os
+from bs4 import BeautifulSoup
 
 def find_between(s, first, last):
     try:
@@ -17,100 +9,75 @@ def find_between(s, first, last):
     except ValueError:
         return ""
 
-def format_stars(value):
-	return int(value.lstrip()[1:].rstrip().lstrip().replace('.',''))
 
-def get_num(x):
-	return int(''.join(ele for ele in x if ele.isdigit()))
-
-try:
-	urls = open(sys.argv[1], "r")
-except:
-	quit("ERRO: Envie o arquivo de URL`s")
+urls = open( "urls.txt", "r" )
 lines = []
 for line in urls:
     lines.append(line.replace("\n", ''))
 
 for url in lines:
-	headers = { "Accept-Language" : "pt_BR" }
-	req = urllib2.Request(url, None, headers)
-	try:
-		response = urllib2.urlopen(req)
-	except urllib2.HTTPError:
-		continue
-	encoding = response.headers['content-type'].split('charset=')[1]
-	html = response.read()
+    file_name = url.split("id=")[1].replace(".", "-")
+    if os.path.isfile("apps_info_json/%s.json" % file_name) == False:
+        print("generating %s.json" % file_name)
+        try:
+            response = urllib2.urlopen(url)
+        except:
+            response = False
+        if response != False:
+            html = response.read()
 
-	content = unicode(html, encoding)
+            soup = BeautifulSoup(html, 'html.parser')
 
-	soup = BeautifulSoup(content, 'html.parser')
+            datePublished 	= soup.find('div', {'itemprop': 'datePublished'}).text
+            try:
+                fileSize 	= soup.find('div', {'itemprop': 'fileSize'}).text.rstrip().lstrip()
+            except:
+                fileSize	= ''
+            numDownloads 	= soup.find('div', {'itemprop': 'numDownloads'}).text.split('-')
+            appName 		= soup.select(".document-title")[0].text.rstrip().lstrip()
+            category        = soup.find('span', {'itemprop': 'genre'}).text
+            offered_by 		= soup.find('div', text='Oferecido por').findNext('div').text
 
-	date_scraped	= soup.find('div', {'itemprop': 'datePublished'}).text
-	datePublished	= datetime.datetime.strptime(date_scraped, '%d de %B de %Y').isoformat()
-	try:
-		fileSize 	= soup.find('div', {'itemprop': 'fileSize'}).text.rstrip().lstrip()
-	except:
-		fileSize	= None
-	numDownloads 	= soup.find('div', {'itemprop': 'numDownloads'}).text.split('-')
-	appName 		= soup.select(".document-title")[0].text.rstrip().lstrip()
-	offered_by 		= soup.select('.document-subtitle.primary span')[0].text
+            devInfo = soup.find('div', {'class': 'content contains-text-link'})
 
-	devInfo = soup.find('div', {'class': 'content contains-text-link'})
+            site_array = [find_between(link['href'], '?q=', '&') for link in soup.findAll('a', href=True, text='Acesse o site')]
+            site = site_array[0] if len(site_array) > 0 else ''
+            email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
 
-	try:
-		site = [find_between(str(result.attrs['href']), '?q=', '&sa=D') for result in soup.findAll('a', href=True, text=re.compile('Acesse o site'))][0]
-	except IndexError:
-		site = ''
+            score_total = soup.select(".score")[0].text
 
-	email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
+            one_star 	= int(soup.select("div.rating-bar-container.one")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+            two_stars 	= int(soup.select("div.rating-bar-container.two")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+            three_stars = int(soup.select("div.rating-bar-container.three")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+            four_stars 	= int(soup.select("div.rating-bar-container.four")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+            five_stars 	= int(soup.select("div.rating-bar-container.five")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+            sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
 
-	try:
-		score_total = float(soup.select(".score")[0].text.replace(',', '.'))
+            app_info = {'AppName': appName,
+                        'url': url,
+                        'category': category,
+                        'datePublished': datePublished,
+                        'fileSize': fileSize,
+                        'numDownloads': [int(numDownloads[0].rstrip().lstrip().replace('.','')), int(numDownloads[1].rstrip().lstrip().replace('.',''))],
+                        'devInfo': {'author': offered_by,'site': site, 'email': email},
+                        'reviews': {'scores': {
+                                                '1_star': one_star,
+                                                '2_stars': two_stars,
+                                                '3_stars': three_stars,
+                                                '4_stars': four_stars,
+                                                '5_stars': five_stars,
+                                                'total': score_total,
+                                                'ratingCount': sum_stars
+                                                }, 'comments': [] }
+                        }
 
-		one_star 	= format_stars(soup.select("div.rating-bar-container.one")[0].text)
-		two_stars 	= format_stars(soup.select("div.rating-bar-container.two")[0].text)
-		three_stars = format_stars(soup.select("div.rating-bar-container.three")[0].text)
-		four_stars 	= format_stars(soup.select("div.rating-bar-container.four")[0].text)
-		five_stars 	= format_stars(soup.select("div.rating-bar-container.five")[0].text)
-		sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
-	except:
-		score_total = 0
+            for review in soup.findAll('div', {'class': 'single-review'}):
+                author 	= review.find('span', {'class': 'author-name'}).text.rstrip().lstrip()
+                authorId = find_between(str(review.find('span', {'class': 'author-name'})), '?id=', '"')
+                date 	= review.find('span', {'class': 'review-date'}).text
+                message = review.find('div', {'class': 'review-body'}).text.replace('Resenha completa', '').rstrip().lstrip()
+                app_info['reviews']['comments'].append({'author': author, 'authorId': authorId, 'date': date, 'message': message.encode('utf-8')})
 
-		one_star 	= 0
-		two_stars 	= 0
-		three_stars = 0
-		four_stars 	= 0
-		five_stars 	= 0
-		sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
+            # print json.dumps(app_info, indent=4), quit()
 
-	app_info = {'AppName': appName,
-				'url': url,
-				'datePublished': datePublished,
-				'fileSize': fileSize,
-				'numDownloads': [int(numDownloads[0].rstrip().lstrip().replace('.','')), int(numDownloads[1].rstrip().lstrip().replace('.',''))],
-				'devInfo': {'author': offered_by,'site': site, 'email': email},
-				'reviews': {'scores': {
-										'1_star': one_star,
-										'2_stars': two_stars,
-										'3_stars': three_stars,
-										'4_stars': four_stars,
-										'5_stars': five_stars,
-										'total': score_total,
-										'ratingCount': sum_stars
-										}, 'comments': [] }
-				}
-
-	for review in soup.findAll('div', {'class': 'single-review'}):
-		author 		= review.find('span', {'class': 'author-name'}).text.rstrip().lstrip()
-		authorId 	= find_between(str(review.find('span', {'class': 'author-name'})), '?id=', '"')
-		authorStars = get_num(review.find('div', {'class': 'review-info-star-rating'}).find('div', {'class': 'tiny-star star-rating-non-editable-container'}).get('aria-label'))
-		date 		= datetime.datetime.strptime(review.find('span', {'class': 'review-date'}).text, '%d de %B de %Y').isoformat()
-		message 	= review.find('div', {'class': 'review-body'}).text.replace('Resenha completa', '').rstrip().lstrip()
-		app_info['reviews']['comments'].append({'author': author, 'authorId': authorId, 'authorStars': authorStars, 'date': date, 'message': message})
-
-	# print json.dumps(app_info, indent=4), quit()
-
-	if not os.path.exists('apps_info_json'):
-		os.makedirs('apps_info_json')
-
-	json.dump(app_info, open('apps_info_json/%s.json' % ''.join(l for l in re.findall('([A-Za-z])' ,appName)), 'w'))
+            json.dump(app_info, open('apps_info_json/%s.json' % file_name, 'w'))
