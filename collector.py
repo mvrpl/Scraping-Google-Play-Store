@@ -17,13 +17,13 @@ for line in urls:
 
 for url in lines:
     file_name = url.split("id=")[1].replace(".", "-")
-    if os.path.isfile("apps_info_json/%s.json" % file_name) == False:
-        print("generating %s.json" % file_name)
+    if os.path.isfile("results/%s.json" % file_name) == False:
         try:
             response = urllib2.urlopen(url)
         except:
             response = False
         if response != False:
+            print("generating %s.json" % file_name)
             html = response.read()
 
             soup = BeautifulSoup(html, 'html.parser')
@@ -42,16 +42,29 @@ for url in lines:
 
             site_array = [find_between(link['href'], '?q=', '&') for link in soup.findAll('a', href=True, text='Acesse o site')]
             site = site_array[0] if len(site_array) > 0 else ''
-            email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
+            try:
+                email = re.search('(?=mailto:).*?(?=")', str(devInfo)).group(0).replace('mailto:', '')
+            except:
+                email = ''
 
-            score_total = soup.select(".score")[0].text
+            try:
+                score_total = soup.select(".score")[0].text
 
-            one_star 	= int(soup.select("div.rating-bar-container.one")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
-            two_stars 	= int(soup.select("div.rating-bar-container.two")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
-            three_stars = int(soup.select("div.rating-bar-container.three")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
-            four_stars 	= int(soup.select("div.rating-bar-container.four")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
-            five_stars 	= int(soup.select("div.rating-bar-container.five")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
-            sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
+                one_star 	= int(soup.select("div.rating-bar-container.one")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+                two_stars 	= int(soup.select("div.rating-bar-container.two")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+                three_stars = int(soup.select("div.rating-bar-container.three")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+                four_stars 	= int(soup.select("div.rating-bar-container.four")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+                five_stars 	= int(soup.select("div.rating-bar-container.five")[0].text.lstrip()[1:].rstrip().lstrip().replace('.',''))
+                sum_stars 	= one_star+two_stars+three_stars+four_stars+five_stars
+            except:
+                score_total = '0'
+
+                one_star 	= 0
+                two_stars 	= 0
+                three_stars = 0
+                four_stars 	= 0
+                five_stars 	= 0
+                sum_stars 	= 0
 
             app_info = {'AppName': appName,
                         'url': url,
@@ -80,4 +93,4 @@ for url in lines:
 
             # print json.dumps(app_info, indent=4), quit()
 
-            json.dump(app_info, open('apps_info_json/%s.json' % file_name, 'w'))
+            json.dump(app_info, open('results/%s.json' % file_name, 'w'))
